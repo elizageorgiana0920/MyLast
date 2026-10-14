@@ -1,87 +1,118 @@
-# Coffee Chain Management Database
+# MyLast — Linux Authentication Log Analyzer
 
-**Relational Database Design & Advanced SQL | Oracle Database**
+**A Bash-based command-line project for reconstructing Linux login sessions and examining failed authentication attempts from system logs.**
 
-An end-to-end academic database project modeling the operations of a multi-location coffee shop franchise. Designed and implemented a relational schema to manage employees, shifts, customers, orders, menu items, recipes, ingredient inventory, suppliers, and deliveries.
+MyLast is a two-script implementation inspired by the Linux `last` and `lastb` utilities. Instead of reading `wtmp`/`btmp` databases, it parses `/var/log/auth.log` and rotated authentication logs, providing a practical exercise in **Linux system administration, Bash scripting, log parsing, and security-focused troubleshooting**.
 
-The project emphasizes **relational data modeling, data integrity, advanced SQL querying, normalization, and query optimization**, with analytical queries designed around realistic business questions.
+## Features
 
-## Tech Stack
+- **Successful session analysis (`last.sh`)** — extracts login/session events and attempts to pair session starts with their corresponding ends.
+- **Failed authentication analysis (`lastb.sh`)** — extracts PAM authentication failure records and displays users, authentication services, terminals, and timestamps.
+- **Multiple authentication mechanisms** — handles selected SSH, `systemd-logind`, graphical greeter, and `su` session messages in the successful-session script.
+- **Flexible CLI filtering** — restrict results by count, date/time criteria, and user; `lastb.sh` also supports terminal filtering.
+- **Rotated log support** — processes regular and gzip-compressed authentication logs.
 
-- **Database:** Oracle Database
-- **Language:** SQL (Oracle SQL dialect)
-- **Concepts:** ER modeling, relational algebra, normalization, constraints, joins, correlated subqueries, common table expressions (CTEs), views, and data manipulation
+## Technologies and concepts
 
-## Key Features
+`Bash` · `Linux` · `PAM authentication logs` · `systemd-logind` · `SSH` · `grep` · `awk` · `sed` · `date` · `gzip` · `regular expressions`
 
-### Relational Database Architecture
-- Designed a schema covering **19 tables**, including entity subtypes and associative tables.
-- Modeled one-to-many, many-to-many, and ternary relationships using primary and foreign keys.
-- Used entity specialization for employee roles (**Manager, Barista, Chef**) and menu categories (**Beverage, Brunch**).
-- Defined integrity constraints with `PRIMARY KEY`, `FOREIGN KEY`, `UNIQUE`, `NOT NULL`, `CHECK`, and default values.
-- Documented entity-relationship and relational-schema diagrams.
+The implementation uses Bash functions, indexed and associative arrays, process substitution, shell pipelines, command-line argument parsing, and timestamp conversion. Session starts and ends are correlated using identifiers extracted from log entries.
 
-### Operational Data Management
-- **Staff and shifts:** employee assignments, shift attendance, hourly pay, and seniority-based compensation reporting.
-- **Orders and customers:** order processing, order items, transaction totals, and customer purchase history.
-- **Menu and recipes:** products, preparation instructions, ingredient quantities, and product categories.
-- **Inventory and procurement:** ingredient stock, supplier relationships, purchase requests, and deliveries across locations.
+## Repository structure
 
-### Advanced SQL and Business Analytics
-- **Customer preference profiles:** identify frequently ordered products, preferred locations, customer tenure, and loyalty categories.
-- **Branch performance:** summarize orders and revenue, compare branch sales against the overall average, and analyze sales by year.
-- **Employee reporting:** combine job roles, completed shifts, and compensation calculations.
-- **Menu analysis:** categorize products and analyze recipe complexity and preparation time.
-- **Supplier reporting:** examine procurement activity and ingredient usage.
+```text
+MyLast/
+├── last.sh      # Parse successful login sessions
+├── lastb.sh     # Parse failed authentication attempts
+└── README.md    # Project documentation
+```
 
-The SQL work demonstrates:
-- Multi-table `JOIN` operations, including outer joins
-- Correlated and non-correlated subqueries
-- Aggregation with `GROUP BY` and `HAVING`
-- Common table expressions using `WITH`
-- Conditional expressions using `CASE` and `DECODE`
-- Oracle functions including `NVL` and date/string functions
-- Top-N analysis and relational division
-- Subquery-based `UPDATE` and `DELETE` operations
-- A reporting `VIEW` combining orders, customers, and employees
+## Getting started
 
-## Database Design and Optimization
+### Requirements
 
-**Normalization:** Analyzed the schema through **1NF, 2NF, 3NF**, with further exploration of **BCNF, 4NF, and 5NF** to evaluate dependencies and redundancy.
+- Linux (designed around Ubuntu/Debian-style `/var/log/auth.log` records)
+- Bash and common GNU command-line utilities (`grep`, `awk`, `sed`, `date`, `gzip`, `tac`)
+- Permission to read `/var/log/auth.log` and relevant rotated files
 
-**Relational algebra:** Compared original and rewritten SQL queries using relational-algebra expressions and operator trees. Applied predicate pushdown and explicit joins to demonstrate logical query optimization.
+```bash
+git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
+cd YOUR_REPOSITORY
+chmod +x last.sh lastb.sh
+```
 
-**Denormalization trade-off:** Proposed a consolidated order-details structure for receipt/history retrieval, explaining the trade-off between repeated joins and controlled data redundancy.
+> Replace the placeholder repository URL and folder name with the actual GitHub repository. Depending on log permissions, running the scripts may require `sudo`.
 
-> **Scope:** Query optimization is demonstrated conceptually through relational algebra and SQL rewrites; the project does not claim measured runtime improvements or a production deployment.
+## Usage
 
-## Example: Branch Performance Analysis
+### 1. Inspect login sessions
 
-One of the analytical tasks is to identify locations whose total sales exceed average branch sales, and report their order volume, revenue, and year-by-year sales figures. This illustrates how multi-table joins, grouped aggregates, and subqueries can answer a business question directly within the database.
+```bash
+./last.sh -n 5
+./last.sh -s 2026-01-01
+./last.sh -t 2026-01-31
+./last.sh -n 10 alice
+```
 
-## Repository Contents
+`last.sh` recognizes the following arguments:
 
-The project documentation includes:
-- Business requirements and integrity constraints
-- Entity-relationship and relational-schema diagrams
-- Table creation statements and sample-data inserts
-- Advanced SQL queries and data modification examples
-- View creation and examples of permitted/restricted modifications
-- Relational-algebra optimization examples
-- Normalization and denormalization analysis
+| Option | Description |
+| --- | --- |
+| `-n NUMBER` | Maximum number of sessions to display |
+| `-s DATE` | Filter log entries from the specified date/time onward |
+| `-t DATE` | Filter log entries before the specified date/time |
+| `-p DATE` | Restrict processing to a date-based window (see note below) |
+| `USER` | Filter records by user-related text |
 
-## Running the SQL
+**Important:** The `-p` option in this implementation is a date-window filter; it does not fully reproduce the historical “sessions active at this exact moment” behavior of the standard `last` utility.
 
-Use an **Oracle Database** instance and an Oracle-compatible SQL client (such as Oracle SQL Developer). Execute the schema creation statements before inserting the sample data, then run the analysis queries. SQL examples use Oracle-specific syntax and may require changes for other database engines.
+### 2. Inspect failed login attempts
 
-*For easier reproduction, the repository should include separate SQL scripts for schema creation, sample data, and analytical queries.*
+```bash
+./lastb.sh -n 10
+./lastb.sh -s 2026-01-01 00:00:00
+./lastb.sh -t 2026-01-31 23:59:59
+./lastb.sh -p 2026-01-15 12:00:00
+./lastb.sh alice tty3
+```
 
-## Academic Context
+`lastb.sh` recognizes the following arguments:
 
-Developed independently for the **Databases** course, Faculty of Mathematics and Computer Science, **University of Bucharest** (June 2026).
+| Option | Description |
+| --- | --- |
+| `-n NUMBER` | Maximum number of matching failed authentication entries |
+| `-s YYYY-MM-DD HH:MM:SS` | Only include failures after this timestamp |
+| `-t YYYY-MM-DD HH:MM:SS` | Only include failures up to this timestamp |
+| `-p YYYY-MM-DD HH:MM:SS` | Match an exact timestamp |
+| `USER` | Filter by an existing local username |
+| `TTY` | Filter by an existing terminal device |
 
-**Author:** Eliza-Georgiana Boroș
+**Note:** Date/time values for `lastb.sh` are supplied as two separate command-line arguments. The implementation validates the date and time format before processing.
 
-## Skills Demonstrated
+## How it works
 
-`Oracle SQL` · `Relational Database Design` · `Data Modeling` · `ER Diagrams` · `SQL Joins` · `Subqueries` · `CTEs` · `Aggregation` · `Views` · `Data Integrity` · `Database Normalization` · `Relational Algebra` · `Query Optimization`
+**`last.sh`** reads authentication log files, searches for recognized session-open and session-close events, and uses associative arrays to match certain events by their session or process identifier. It then formats each reconstructed record with a username, access method, start time, and either an end time or an indication that no end event was found.
+
+**`lastb.sh`** reads current and rotated authentication logs, selects lines containing `authentication failure`, extracts user, service, terminal, and timestamp fields using regular expressions, applies user/time/terminal filters, and prints matching entries.
+
+## Scope and limitations
+
+This is an **educational log-analysis implementation**, not a drop-in replacement for Linux `last`/`lastb` and not a real-time intrusion-detection system.
+
+- It parses authentication text logs rather than the `wtmp` and `btmp` databases used by the standard utilities.
+- Results depend on the host's log format, log rotation configuration, available files, and file-read permissions.
+- Session reconstruction supports selected message patterns; unrecognized or missing events may produce incomplete records.
+- Timestamp handling and some CLI options differ between the two scripts and from the original utilities.
+- The scripts have been checked for Bash syntax, but an end-to-end runtime test with representative system logs is not included in this repository.
+
+## Contributors
+
+Developed as a team project by **Eliza-Georgiana Boroș** and **Rebeca Nicula**.
+
+## Skills demonstrated
+
+- Parsing and filtering Linux authentication logs with Bash
+- Working with Unix command-line tools and compressed/rotated files
+- Reconstructing session information from event-oriented records
+- Designing configurable command-line utilities
+- Handling input validation and time-based filtering
